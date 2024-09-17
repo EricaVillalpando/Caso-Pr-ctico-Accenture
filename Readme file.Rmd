@@ -1,0 +1,211 @@
+---
+title: "Caso Práctico Accenture"
+author: "Erica Villalpando Del Carpio"
+date: "12/9/2024"
+output:
+  word_document: default
+  html_document: default
+---
+NOTA: Si se desea ver las gráficas y resultados presentes en este archivo es necesario correr primero el código principal. De cualquier modo las gráficas están en el código principal.
+
+Explicación del Caso:
+
+Nuestro cliente es DMResources Limited (DMR), una Fintech emergente en México especializada en ofrecer microcréditos personalizados a pequeñas y medianas empresas. 
+
+El desafío que enfrenta actualmente es una tasa de incumplimiento en su cartera de créditos superior a las expectativas.
+
+El objetivo principal es desarrollar un nuevo modelo de riesgo de incumplimiento que permita identificar y mitigar el riesgo de impago entre los clientes de la compañía. La implementación de este modelo tiene el potencial de reducir la tasa de incumplimiento, lo cual se traducirá directamente en mayores ganancias para la empresa.
+
+Para abordar este problema, se han desarrollado y ajustado diversos modelos de clasificación utilizando los datos proporcionados por DMR. Estos modelos están diseñados para predecir, en función de las características particulares de cada cliente, la probabilidad de que incumpla con su crédito. La aplicación efectiva de estos modelos permitirá a DMR tomar decisiones más informadas y estratégicas para gestionar y reducir el riesgo de incumplimiento.
+
+Limpieza de datos: 
+
+Primero fue necesario unir la base de datos proporcionada en tres hojas diferentes de un archivo de Excel para poder analizarla.
+
+Nuestro archivo consta de 7043 registros y 21 variables. En la estructura de nuestros datos se observaron solamente 4 variables de tipo numérico, siendo todas las demás, incluida la variable respuesta "Churn" variables categóricas.
+
+Una de estas variables (SeniorCitizen) fue recodificar para ser una variable categórica, pues sus registros contenían solo 0's y 1's que indicaban "NO" y "Sí" respectivamente.
+
+Se procedió a verificar la existencia de datos faltantes, encontrando que las únicas variables con 7 y 31 datos sin capturan eran dos de nuestras ahora 3 variables numéricas, MonthlyCharges y TotalCharges respectivamente. Se decidió eliminar dichos registros hasta comprobar la existencia de una correlación significativa entre dichas variables.
+
+Creamos una matriz de correlación entre las variables numéricas presentes en nuestra base de datos (Monthly Charges, Total Charges y Tenure). 
+
+Con el objetivo de determinar si las correlaciones detectadas son estadísticamente significativas se decidió realizar una prueba de hipótesis.
+
+Para determinar qué tipo de prueba debía ser aplicada (Pearson o Spearman) fue necesario verificar la distribución de dichas variables, como se muestra a continuación:
+
+```{r}
+hist(datos2$MonthlyCharges, main = "Histogram of Monthly Charges", xlab = "Monthly Charges ($)", col="lightblue", breaks = 50)
+hist(datos2$TotalCharges, main = "Histogram of Total Charges", xlab = "Total Charges ($)", col="lightblue", breaks = 50)
+hist(datos2$tenure, main = "Histogram of Tenure", xlab = "Tenure (months)", col="lightblue", breaks = 50)
+```
+
+Dado que ninguna de las variables presentó una distribución normal, aplicamos la prueba de correlación de Spearman (podríamos aplicar pruebas de normalidad, pero en este caso no es necesario).
+
+La correlación entre MonthlyCharges y TotalCharges es positiva y estadísticamente significativa, al igual que la existente entre tenure y TotalCharges. Por esta razón se decidió eliminar la variable TotalCharges del análisis.
+Tomamos la matriz de datos original y solamente eliminamos los valores faltantes para los 7 registros de MonthlyCharges. También eliminamos la variable CustomerID por no ser relevante para el análisis.
+
+La base de datos con la que trabajaremos cuenta con 7036 registros, 18 variables predictoras y una variable dependiente.
+
+
+```{r}
+corrplot(matriz_corr1, main = "\n\nMatriz de correlación entre variables numéricas", method = "number")
+```
+Para verificar que no hay presencia de outliers en nuestras variables numéricas se realizaron gráficas de caja.
+
+```{r}
+boxplot(datos$tenure)
+boxplot(datos$MonthlyCharges)
+```
+
+Finalmente, recodificamos las categorías que indican "No internet service" y "No phone service" a "No" para facilitar el análisis.
+
+Análisis exploratorio: 
+
+Revisamos la nueva estructura en nuestros datos y la proporción en la variable respuesta, encontrando que está balanceada (50% del total de clientes incumple y 50% no incumple).
+
+Procedemos a mediante gráficas observar la existencia de relaciones entre la variable respuesta y las predictoras.
+
+```{r}
+grid.arrange(g3,g1,g4,g2, nrow = 2, ncol = 2) 
+grid.arrange(g5,g6,g7,g8, nrow = 2, ncol = 2)
+grid.arrange(g9,g10,g11,g12, nrow = 2, ncol = 2)
+grid.arrange(g13,g14,g15,g16, nrow = 2, ncol = 2)
+grid.arrange(g17,g18,g19,g20, nrow = 2, ncol = 2)
+```
+De las gráficas anteriores podemos decir lo siguiente con respecto a nuestras variables predictoras y su relación con la variable respuesta:
+Mujeres y hombres incumplen y cumplen en aproximadamente la misma proporción.
+El género no parece ser una variable significativa en el análisis.
+Las personas mayores incumplen con mayor frecuencia, sin embargo, constituyen solo el 16% de los clientes de la compañía.
+Clientes sin dependientas (más del 50%) incumplen con mayor frecuencia, sin embargo, esta variable no parece ser significativa.
+Clientes sin pareja incumplen con una ligera mayor frecuencia.
+Más del 60% de los clientes con Fibra Óptica incumplen. Representan el 27% de los clientes totales.
+Clientes que sí cuentan con seguridad online cumplen con mayor frecuencia, sin embargo, solo representan el 28% de los clientes totales.
+Clientes sin online security, online backup y tech support (la mayoría) incumplen con una ligera mayor frecuencia.
+Clientes con month to month contracts incumplen con mayor frecuencia, al igual que aquellos que pagan mediante cheque electrónico.
+Clientes que han estado pocos meses en la compañía incumplen con más frecuencia.
+En general, cuando los clientes han estado en la compañía por más de 18 meses la frecuencia de incumplimiento es menor en comparación con la de cumplimiento.
+Se puede apreciar que a medida que los cargos mensuales aumentan, es mayor la frecuencia de incumplimiento con respecto a la de cumplimiento.
+
+Partición de datos y resampling:
+
+Se dividió la base de datos en conjuntos de training y testing para nuestros predictores y variable respuesta.
+Se decidió seleccionar un 70% de los datos para entrenar nuestros modelos y 30% para probar su capacidad de clasificación.
+Se utilizó validación cruzada en 7 capas con 3 repeticiones para afinar y comparar diferentes modelos. 
+Crearemos dichas capas y repeticiones inicialmente para usar los mismos subconjuntos con cada modelo y hacerlos comparables.
+Con este método, entrenamos el modelo con los datos de entrenamiento y lo utilizamos para predecir las respuestas en el conjunto de prueba.
+
+Ajuste de modelos de clasificación:
+
+Regresión Logística:
+
+La regresión logística es un método utilizado para análisis predictivo y modelado. Usamos regresión logística binaria para predecir la probabilidad de que una observación dada (en nuestro caso, un cliente) pertenezca a la categoría de Churn=Yes dadas sus características (variables predictoras).
+
+La métrica de evaluación que se usará para seleccionar el mejor modelo es el área bajo la curva ROC. Esta métrica es útil para problemas de clasificación binaria.
+
+Definimos nuestro modelo y lo entrenamos de la siguiente manera:
+
+```{r}
+logisticReg = train(x=Xtrain, y=Ytrain, 
+                    method="glm",metric = "ROC", 
+                    preProc=c("center","scale"),
+                    trControl = ctrl)
+```
+Resultados:
+
+El área bajo la curva ROC es 0.672, lo que indica que el modelo tiene una capacidad moderada para discriminar entre clases.
+La sensibilidad del modelo es 0.64, lo que indica que clasifica correctamente el 64% de los clientes que incumplen.
+La especificidad del modelo es 0.62, lo que indica que clasifica correctamente al 62% de los clientes que no incumplen.
+Las variables significativas en el modelo a un nivel alpha del 5% son Tenure, Contract, Payment method y Paperless Billing.
+Nuestro modelo clasifica correctamente a 1343 de un total de 2110 datos en el set de prueba (63.6%).
+
+C5.0:
+
+C5.0 es un algoritmo que nos permite construir clasificadores expresados como árboles de decisión o como conjuntos de reglas. Encuentra cómo predecir la clase de un caso utilizando la información de los demás atributos (variables). 
+El algoritmo primero genera un árbol grande que sobre ajusta los datos de entrenamiento, y luego elimina nodos y ramas que tienen poco efecto en los errores de clasificación.
+
+Para utilizar este modelo primero creamos una matriz que contiene todas las combinaciones posibles de parámetros que definimos para entrenar el modelo. Estos son trials (iteraciones del algoritmo), modelo (basado en reglas o árboles de decisión) y winowing (False or True).
+
+Winnowing es una técnica de selección de características en el algoritmo C5.0 que ayuda a mejorar el rendimiento del modelo al eliminar atributos menos relevantes.
+
+Entrenamos el modelo de la siguiente manera:
+
+```{r}
+C5 <- caret::train(Xtrain, 
+                   y=Ytrain,
+                   tuneGrid = c50Grid, verbose=FALSE,
+                   method="C5.0", metric = "ROC", 
+                   trControl=ctrl)
+```
+
+Resultados:
+
+El mejor modelo (maximiza nuestra métrica de comparación) es un modelo basado en reglas que se entrena utilizando 10 iteraciones y aplica la técnica de winnowing para la selección de características.
+El área bajo la curva es 0.668, lo que indica que el modelo tiene una capacidad moderada para discriminar entre clases. El valor anterior es menor al obtenido utilizando regresión logística.
+La sensibilidad del modelo es 0.66, lo que indica que clasifica correctamente el 66% de los clientes que incumplen.
+La especificidad del modelo es 0.6, lo que indica que clasifica correctamente al 60% de los clientes que no incumplen.
+El modelo clasifica correctamente a 1329 de un total de 2110 datos en el set de prueba (63%).
+
+A continuación, se puede ver de forma gráfica la relación entre los parámetros de cada modelo y la métrica ROC en cada uno de ellos.
+
+```{r}
+plot(C5)
+```
+Redes Neuronales:
+
+Las redes neuronales utilizan una arquitectura inspirada en las neuronas del cerebro. Reciben una entrada y, basándose en esa entrada, predicen diferentes resultados. Las redes neuronales se pueden crear con al menos tres capas de neuronas: la capa de entrada, las unidades ocultas y la capa de salida. Las unidades ocultas consisten en muchas neuronas con conexiones entre las capas (que transmiten y reciben información); son combinaciones lineales de los predictores originales que han sido transformadas por una función no lineal.
+
+A medida que la red neuronal "aprende" de los datos, los pesos o la fuerza de las conexiones entre estas neuronas se "ajustan", lo que permite a la red generar predicciones precisas.
+
+Primero creamos una matriz con todas las combinaciones de size y decay que se utilizarán para la búsqueda de hiperparámetros:
+
+```{r}
+nnetGrid <- expand.grid(size = 1:8, decay = c(0, .1, 1, 2))
+```
+
+Posteriormente entrenamos nuestro modelo
+
+```{r}
+nnetGrid$bag = FALSE  
+nnetFit2 <- caret::train(x = Xtrain, 
+                         y = Ytrain,
+                         method = "avNNet",
+                         metric = "ROC",
+                         preProc = c("center", "scale"),
+                         tuneGrid = nnetGrid,
+                         trace = FALSE,
+                         maxit = 100, 
+                         MaxNWts = 
+                           5*(maxSize * (length(Ytrain) + 1) 
+                              + maxSize + 1),
+                         trControl = ctrl)
+```
+
+Configuramos una búsqueda de hiperparámetros para una red neuronal (avNNet) utilizando un grid de parámetros creado con expand.grid. 
+Ajustamos la red neuronal en los datos de entrenamiento Xtrain y Ytrain.
+El objetivo es encontrar la mejor combinación de parámetros para maximizar el rendimiento del modelo basado en la métrica ROC.
+En lugar de utilizar una única red neuronal, avNNet combina las predicciones de varias redes neuronales entrenadas en diferentes subconjuntos de datos. Esto promedia las predicciones para obtener una estimación más estable y precisa.
+
+Resultados:
+
+El mejor modelo (maximiza nuestra métrica de comparación) incluye 7 unidades ocultas con una tasa de decaimiento de pesos igual a 2.
+El área bajo la curva es 0.675, lo que indica que el modelo tiene una capacidad moderada para discriminar entre clases. 
+El valor anterior es mayor al obtenido utilizando regresión logística, por lo que este es nuestro mejor modelo.
+La sensibilidad del modelo es 0.7, lo que indica que clasifica correctamente el 70% de los clientes que incumplen.
+La especificidad del modelo es 0.566, lo que indica que clasifica correctamente al 57% de los clientes que no incumplen.
+El modelo clasifica correctamente a 1350 de un total de 2110 datos en el set de prueba (64%).
+
+A continuación, se puede ver de forma gráfica la relación entre los parámetros de cada modelo y la métrica ROC en cada uno de ellos.
+
+```{r}
+plot(nnetFit2)
+```
+
+Comparación de modelos:
+
+En esta parte del código creamos una lista con nuestros tres modelos finales para poder compararlos en base a las métricas ROC, sensibilidad y especificidad.
+
+```{r}
+dotplot(resamp)
+```
+
